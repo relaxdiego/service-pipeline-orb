@@ -70,11 +70,10 @@ workflows:
           workspace-path: << pipeline.parameters.packed_orb_path >>
 
       - shellcheck/check:
-          name:    check-shell-scripts-syntax
-          dir:     ./src/scripts
+          name: check-shell-scripts-syntax
+          dir: ./src/scripts
           exclude: SC2148
 
-      # https://github.com/sstephenson/bats
       - bats/run:
           name: run-bats-tests
           path: ./src/tests
