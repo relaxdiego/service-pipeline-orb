@@ -45,7 +45,7 @@ jobs:
       - run:
           command: |
             circleci orb publish --skip-update-check \
-            << parameters.from >> << parameters.to >>@0.1.0+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM} \
+            << parameters.from >> << parameters.to >>@dev:0.1.0+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM} \
             <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
           name: |
             Publish orb at << parameters.from >> to << parameters.to >>
