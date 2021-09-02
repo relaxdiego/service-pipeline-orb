@@ -7,6 +7,8 @@ orbs:
   bats: circleci/bats@1.0
   # https://circleci.com/developer/orbs/orb/circleci/shellcheck
   shellcheck: circleci/shellcheck@2.0
+  # https://circleci.com/developer/orbs/orb/circleci/circleci-cli
+  cli: circleci/circleci-cli@0.1
 
 parameters:
   packed_orb_path:
@@ -62,11 +64,11 @@ workflows:
           from: << pipeline.parameters.packed_orb_path >>
           to:   relaxdiego/service-pipeline-dev
           requires:
-            - orb-tools/lint
-            - orb-tools/pack
-            - bats/run
-            - shellcheck/check
-          filter:
+            - lint-yaml-files
+            - pack-orb-source
+            - check-shell-scripts-syntax
+            - run-bats-tests
+          filters:
             branches:
               only:
                 - main
