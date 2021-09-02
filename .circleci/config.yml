@@ -1,5 +1,8 @@
 version: 2.1
 
+#
+# ORBS
+#
 orbs:
   # https://circleci.com/developer/orbs/orb/circleci/orb-tools
   orb-tools: circleci/orb-tools@10.0
@@ -10,33 +13,40 @@ orbs:
   # https://circleci.com/developer/orbs/orb/circleci/circleci-cli
   cli: circleci/circleci-cli@0.1
 
-parameters:
-  packed_orb_path:
-    description: >
-      The local path where the packed orb will be created by this pipeline
-    type: string
-    default: orb.yml
-
+#
+# JOBS
+#
 jobs:
+  build:
+    description: Uses the CLI to "compile" src/ to orb.yml
+    executor: cli/default
+    steps:
+      - checkout
+      - run:
+          name: "Build orb.yml"
+          command: |
+            circleci orb pack --skip-update-check src > orb.yml
+      - persist_to_workspace:
+          root: .
+          paths:
+            - orb.yml
+            - VERSION
+
   publish:
-    description: Uses the CLI to publish the orb to a registry.
+    description: >
+      Uses the CLI to publish the orb to a registry. Expects the workspace
+      to have the files orb.yml and VERSION.
     executor: cli/default
     parameters:
-      from:
-        description: >
-          The local path where the packed orb can be found
-        type: string
-      to:
+      registry:
         description: >
           The orb registry (in the format <namespace>/<orb-name>) where the
           build is going to be published.
         type: string
       token-variable:
         description: >
-          Name of env var containing your token. Pass this as a raw string such
-          as ORB_PUBLISHING_TOKEN. Do not paste the actual token into your
-          configuration. If omitted it's assumed the CLI has already been setup
-          with a valid token.
+          The name of the environment variable that contains the token needed
+          to publish to the given orb registry.
         type: env_var_name
         default: CIRCLE_TOKEN
       pre-release:
@@ -46,6 +56,9 @@ jobs:
           version. See https://semver.org/ for more info on pre-releases.
         type: enum
         enum: ["dev", "qa", ""]
+      deleteme:
+        default: ""
+        type: string
     steps:
       - attach_workspace:
           at: .
@@ -56,44 +69,43 @@ jobs:
             echo "Got '${VERSION}' from VERSION file."
       - run:
           command: >
-            circleci orb publish --skip-update-check
-            << parameters.from >>
-            << parameters.to >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>${VERSION}<<# parameters.pre-release>>-<<parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}<</ parameters.pre-release >>
+            echo "deleteme? '<<# parameters.deleteme >>deleteme<</ parameters.deleteme >>'"
+            circleci orb publish --skip-update-check orb.yml
+            << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>${VERSION}<<# parameters.pre-release>>-<<parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}<</ parameters.pre-release >>
             <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
           name: |
-            Publish orb to << parameters.to >>
+            Publish orb to << parameters.registry >>
 
+#
+# WORKFLOWS
+#
 workflows:
   orb-pipeline:
     jobs:
-      - orb-tools/lint:
-          name: lint-yaml-files
+      - build
 
-      - orb-tools/pack:
-          name: pack-orb-source
-          destination-orb-path: << pipeline.parameters.packed_orb_path >>
-          workspace-path: << pipeline.parameters.packed_orb_path >>
-
-      - shellcheck/check:
-          name: check-shell-scripts-syntax
-          dir: ./src/scripts
-          exclude: SC2148
-
-      - bats/run:
-          name: run-bats-tests
-          path: ./src/tests
+      # - orb-tools/lint:
+      #     name: lint-yaml-files
+      #
+      # - shellcheck/check:
+      #     name: check-shell-scripts-syntax
+      #     dir: ./src/scripts
+      #     exclude: SC2148
+      #
+      # - bats/run:
+      #     name: run-bats-tests
+      #     path: ./src/tests
 
       - publish:
-          name: publish-to-dev
-          from: << pipeline.parameters.packed_orb_path >>
-          to: relaxdiego/service-pipeline
+          name: publish-dev-pre-release
+          registry: relaxdiego/service-pipeline
           pre-release: dev
           context: orb-publishing
           requires:
-            - lint-yaml-files
-            - pack-orb-source
-            - check-shell-scripts-syntax
-            - run-bats-tests
+            - build
+            # - lint-yaml-files
+            # - check-shell-scripts-syntax
+            # - run-bats-tests
           filters:
             branches:
               only:
