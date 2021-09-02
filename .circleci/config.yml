@@ -31,11 +31,20 @@ jobs:
           The orb registry (in the format <namespace>/<orb-name>) where the
           build is going to be published.
         type: string
+      token-variable:
+        description: >
+          Name of env var containing your token. Pass this as a raw string such
+          as ORB_PUBLISHING_TOKEN. Do not paste the actual token into your
+          configuration. If omitted it's assumed the CLI has already been setup
+          with a valid token.
+        type: env_var_name
+        default: CIRCLE_TOKEN
     steps:
       - run:
           command: |
             circleci orb publish --skip-update-check \
-            << parameters.from >> << parameters.to >>@0.1.0+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}
+            << parameters.from >> << parameters.to >>@0.1.0+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM} \
+            <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
           name: |
             Publish orb at << parameters.from >> to << parameters.to >>
 
