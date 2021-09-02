@@ -18,26 +18,43 @@ orbs:
 #
 jobs:
   build:
-    description: Uses the CLI to "compile" src/ to orb.yml
+    description: >
+      Uses the CLI to "compile" src/ to orb.yml. This job also writes the
+      build ID to BUILD_ID.
     executor: cli/default
     steps:
       - checkout
       - run:
           name: "Build orb.yml"
           command: |
-            circleci orb pack --skip-update-check src > orb.yml
+            VERSION=$(cat VERSION | tr -d '[[:space:]]')
+            echo "Got '${VERSION}' from VERSION file."
+
+            BUILD_ID="${VERSION}+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}"
+            echo "BUILD_ID is ${BUILD_ID}"
+
+            echo "# BUILD_ID: ${BUILD_ID}" > orb.yml
+            circleci orb pack --skip-update-check src >> orb.yml
       - persist_to_workspace:
           root: .
           paths:
             - orb.yml
-            - VERSION
+            - BUILD_ID
 
   publish:
     description: >
       Uses the CLI to publish the orb to a registry. Expects the workspace
-      to have the files orb.yml and VERSION.
+      to have the files orb.yml and BUILD_ID.
     executor: cli/default
     parameters:
+      pre-release:
+        default: ""
+        description: >
+          An optional pre-release version that will be inserted to the orb's
+          version in the case when it's not yet promoted to production.
+          See https://semver.org/ for more info on pre-releases.
+        type: enum
+        enum: ["dev", "qa", ""]
       registry:
         description: >
           The orb registry (in the format <namespace>/<orb-name>) where the
@@ -49,32 +66,22 @@ jobs:
           to publish to the given orb registry.
         type: env_var_name
         default: CIRCLE_TOKEN
-      pre-release:
-        default: ""
-        description: >
-          An optional pre-release version that will be appended to the orb
-          version. See https://semver.org/ for more info on pre-releases.
-        type: enum
-        enum: ["dev", "qa", ""]
-      deleteme:
-        default: ""
-        type: string
     steps:
       - attach_workspace:
           at: .
       - run:
+          name: debug
           command: |
-            ls -l
-            VERSION=$(cat VERSION | tr -d '[[:space:]]')
-            echo "Got '${VERSION}' from VERSION file."
-      - run:
-          command: >
-            echo "deleteme? '<<# parameters.deleteme >>deleteme<</ parameters.deleteme >>'"
-            circleci orb publish --skip-update-check orb.yml
-            << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>$(echo -n $VERSION)<<# parameters.pre-release>>-<<parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}<</ parameters.pre-release >>
-            <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
-          name: |
-            Publish orb to << parameters.registry >>
+            ls -l .
+            cat BUILD_ID
+
+            cat orb.yml
+      # - run:
+      #     name: Publish orb to << parameters.registry >>
+      #     command: |
+      #       circleci orb publish --skip-update-check orb.yml \
+      #         << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>$(echo -n $VERSION)<<# parameters.pre-release>>-<<parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}<</ parameters.pre-release >> \
+      #         <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
 
 #
 # WORKFLOWS
@@ -99,8 +106,6 @@ workflows:
       - publish:
           name: publish-dev-pre-release
           registry: relaxdiego/service-pipeline
-          pre-release: dev
-          deleteme: testlang
           context: orb-publishing
           requires:
             - build
