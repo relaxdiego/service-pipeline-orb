@@ -94,9 +94,13 @@ jobs:
       - image: cimg/base:stable
     steps:
       - jq/install
+      # Check out the repo again so that we will have access to .circleci/
+      - checkout
       - run:
-          name: Run scripts/trigger-post-dev-workflow.sh
-          command: ./.circleci/scripts/trigger-post-dev-workflow.sh
+          name: Run ./circleci/scripts/trigger-post-dev-workflow.sh
+          command: |
+            git log -1
+            .circleci/scripts/trigger-post-dev-workflow.sh
 
 #
 # WORKFLOWS
