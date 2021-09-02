@@ -46,69 +46,50 @@ jobs:
       - service-pipeline/greet
 
 workflows:
-  # Prior to producing a development orb (which requires credentials), basic
-  # validation, linting, and even unit testing can be performed. This workflow
-  # will run on every commit
-  test-pack:
-    unless: << pipeline.parameters.run-integration-tests >>
+  package-pipeline:
     jobs:
-      - orb-tools/lint # Lint Yaml files
+      - orb-tools/lint:
+          name: lint-yaml-files
 
-      - orb-tools/pack # Pack orb source
+      - orb-tools/pack:
+          name: pack-orb-source
 
       - shellcheck/check:
-          dir: ./src/scripts
+          name:    check-shell-scripts-syntax
+          dir:     ./src/scripts
           exclude: SC2148
 
-      # optional: Run BATS tests against your scripts
+      # https://github.com/sstephenson/bats
       - bats/run:
+          name: run-bats-tests
           path: ./src/tests
-
-      # Publish development version(s) of the orb.
-      - orb-tools/publish-dev:
-          orb-name: relaxdiego/service-pipeline
-          # A restricted context containing private publishing credentials.
-          # Will only execute if approved by an authorized user.
-          context: orb-publishing
-          requires:
-            - orb-tools/lint
-            - orb-tools/pack
-            - bats/run
-            - shellcheck/check
-
-      # Trigger an integration workflow to test dev:${CIRCLE_SHA1:0:7}.
-      - orb-tools/trigger-integration-tests-workflow:
-          name: trigger-integration-dev
-          context: orb-publishing
-          requires:
-            - orb-tools/publish-dev
-
-  # This workflow will only run when the run-integration-tests pipeline
-  # parameter is set to true. It is meant to be triggered by the
-  # "orb-tools/trigger-integration-tests-workflow" job above. When invoked,
-  # it will run tests on dev:${CIRCLE_SHA1:0:7}.
-  integration-test_deploy:
-    when: << pipeline.parameters.run-integration-tests >>
-    jobs:
-      # Run the integration test defined within the `jobs` key.
-      - integration-test
-
-      # Publish a semver version of the orb. Relies on the commit subject
-      # containing the text "[semver:patch|minor|major|skip]" as that will
-      # determine whether a patch, minor or major version will be published
-      # or if publishing should be skipped.
-      # e.g. [semver:patch] will cause a patch version to be published.
-      - orb-tools/dev-promote-prod-from-commit-subject:
-          orb-name: relaxdiego/service-pipeline
-          # A restricted context containing private publishing credentials.
-          # Will only execute if approved by an authorized user.
-          context: orb-publishing
-          add-pr-comment: false
-          fail-if-semver-not-indicated: true
-          publish-version-tag: false
-          requires:
-            - integration-test
-          filters:
-            branches:
-              only:
-                - main
+      #
+      # - publish:
+      #     name: publish-to-dev-repo
+      #     to:   relaxdiego/service-pipeline-dev
+      #     requires:
+      #       - orb-tools/lint
+      #       - orb-tools/pack
+      #       - bats/run
+      #       - shellcheck/check
+      #
+      # - integration-test:
+      #     requires:
+      #       - publish-to-dev-repo
+      #
+      # - publish:
+      #     name: promote-to-qa-repo
+      #     to:   relaxdiego/service-pipeline-qa
+      #     requires:
+      #       - integration-test
+      #
+      # - approve-promotion-to-production:
+      #     type: approval
+      #     requires:
+      #       - promote-to-qa-repo
+      #
+      # - publish:
+      #     name: promote-to-production-repo
+      #     to:   relaxdiego/service-pipeline
+      #     requires:
+      #       - approve-promotion-to-production
