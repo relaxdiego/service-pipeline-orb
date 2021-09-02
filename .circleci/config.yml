@@ -94,14 +94,14 @@ jobs:
       - image: cimg/base:stable
     steps:
       - attach_workspace:
-          at: .
+          at: ~/workspace
       - jq/install
       # Check out the repo again so that we will have access to .circleci/
       - checkout
       - run:
           name: Run ./circleci/scripts/trigger-post-dev-workflow.sh
           command: |
-            BUILD_ID=$(awk '/^# BUILD_ID:/{print $NF}' orb.yml | tr -d '[[:space:]]')
+            BUILD_ID=$(awk '/^# BUILD_ID:/{print $NF}' ~/workspace/orb.yml | tr -d '[[:space:]]')
             cat > pipelineparams.json \<<EOF
             {
               "run-post-dev-workflow": true,
