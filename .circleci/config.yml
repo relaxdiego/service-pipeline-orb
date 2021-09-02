@@ -96,7 +96,7 @@ jobs:
       - jq/install
       - run:
           name: Run scripts/trigger-post-dev-workflow.sh
-          command: .circleci/scripts/trigger-post-dev-workflow.sh
+          command: ./.circleci/scripts/trigger-post-dev-workflow.sh
 
 #
 # WORKFLOWS
