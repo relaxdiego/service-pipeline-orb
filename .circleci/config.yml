@@ -76,7 +76,7 @@ jobs:
             ls -l .
             cat BUILD_ID
       - run:
-          name: Publish orb
+          name: Run `circleci orb publish`
           command: |
             circleci orb publish --skip-update-check orb.yml \
               << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>$(cat BUILD_ID)<<# parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}.<<parameters.pre-release>><</ parameters.pre-release >> \
@@ -91,17 +91,17 @@ workflows:
       - build:
           name: Build orb
 
-      # - orb-tools/lint:
-      #     name: lint-yaml-files
-      #
-      # - shellcheck/check:
-      #     name: check-shell-scripts-syntax
-      #     dir: ./src/scripts
-      #     exclude: SC2148
-      #
-      # - bats/run:
-      #     name: run-bats-tests
-      #     path: ./src/tests
+      - orb-tools/lint:
+          name: Lint YAML files
+
+      - shellcheck/check:
+          name: Syntax check shell scripts
+          dir: ./src/scripts
+          exclude: SC2148
+
+      - bats/run:
+          name: Run BATS
+          path: ./src/tests
 
       - publish:
           name: Publish dev pre-release
@@ -110,9 +110,9 @@ workflows:
           context: orb-publishing
           requires:
             - Build orb
-            # - lint-yaml-files
-            # - check-shell-scripts-syntax
-            # - run-bats-tests
+            - Lint YAML files
+            - Syntax check shell scripts
+            - Run BATS
           filters:
             branches:
               only:

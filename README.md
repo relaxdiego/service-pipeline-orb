@@ -31,6 +31,8 @@ against this repository!
 
 ### How to Publish
 
+* Run `make validate` to run local validators prior to pushing to github.
+
 * Create and push a branch with your new features.
 
 * When ready to publish a new production version, create a Pull Request from
