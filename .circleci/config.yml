@@ -79,7 +79,7 @@ jobs:
           name: Publish orb
           command: |
             circleci orb publish --skip-update-check orb.yml \
-              << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>$(cat BUILD_ID)+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}<<# parameters.pre-release>>.<<parameters.pre-release>><</ parameters.pre-release >> \
+              << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>$(cat BUILD_ID)<<# parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}.<<parameters.pre-release>><</ parameters.pre-release >> \
               <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
 
 #
@@ -106,6 +106,7 @@ workflows:
       - publish:
           name: Publish dev pre-release
           registry: relaxdiego/service-pipeline
+          pre-release: dev
           context: orb-publishing
           requires:
             - Build orb
