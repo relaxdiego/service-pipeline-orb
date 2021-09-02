@@ -104,8 +104,11 @@ jobs:
             BUILD_ID=$(awk '/^# BUILD_ID:/{print $NF}' ~/workspace/orb.yml | tr -d '[[:space:]]')
             cat > pipelineparams.json \<<EOF
             {
-              "run-post-dev-workflow": true,
-              "version-to-test": "dev:${BUILD_ID}.dev"
+                "branch": "$CIRCLE_BRANCH",
+                "parameters": {
+                    "run-post-dev-workflow": true,
+                    "version-to-test": "dev:${BUILD_ID}.dev"
+                }
             }
             EOF
             curl -u "$CIRCLE_TOKEN": \
