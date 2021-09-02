@@ -41,6 +41,7 @@ orbs:
   # https://circleci.com/developer/orbs/orb/circleci/jq
   jq: circleci/jq@2.2
 
+
 #
 # JOBS
 #
@@ -69,26 +70,11 @@ jobs:
           paths:
             - orb.yml
 
-  publish:
+  publish-dev-pre-release:
     description: >
       Uses the CLI to publish the orb to the registry. Expects the workspace
       to the packed/compiled orb.yml file.
     executor: cli/default
-    parameters:
-      pre-release:
-        default: ""
-        description: >
-          An optional pre-release version that will be appended to the orb's
-          version in the case when it's not yet promoted to production.
-          See https://semver.org/ for more info on pre-releases.
-        type: enum
-        enum: ["dev", "qa", ""]
-      token-variable:
-        description: >
-          The name of the environment variable that contains the token needed
-          to publish to the given orb registry.
-        type: env_var_name
-        default: CIRCLE_TOKEN
     steps:
       - attach_workspace:
           at: .
@@ -102,28 +88,15 @@ jobs:
 
   trigger-post-dev-workflow:
     description: >
-      Trigger the post-dev workflow against a given version as indicated by
-      << pipeline.parameters.version-to-test >>
+      Trigger the post-dev workflow against the build this pipeline just
+      published in the dev workflow.
     docker:
       - image: cimg/base:stable
-    parameters:
-      token-variable:
-        description: >
-          The name of the environment variable that contains the token needed
-          trigger the post-dev workflow via the CircleCI API.
-        type: env_var_name
-        default: CIRCLE_TOKEN
     steps:
       - jq/install
-
-  integration-test:
-    docker:
-      - image: cimg/base:stable
-    steps:
       - run:
-          name: Debug
-          command: |
-            ls -l .
+          name: Run scripts/trigger-post-dev-workflow.sh
+          command: .circleci/scripts/trigger-post-dev-workflow.sh
 
 #
 # WORKFLOWS
@@ -147,7 +120,7 @@ workflows:
           name: Run BATS
           path: ./src/tests
 
-      - publish:
+      - publish-dev-pre-release:
           name: Publish dev pre-release
           context: orb-publishing
           requires:
@@ -164,11 +137,11 @@ workflows:
               ignore:
                 - .*
 
-  #     - trigger-post-dev-workflow:
-  #         name: Trigger post-dev workflow
-  #         requires:
-  #           - Publish dev pre-release
-  #
+      - trigger-post-dev-workflow:
+          name: Trigger post-dev workflow
+          requires:
+            - Publish dev pre-release
+
   # post-dev:
   #   when: << pipeline.parameters.post-dev-workflow >>
   #   jobs:
