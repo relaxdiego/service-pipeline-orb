@@ -112,7 +112,7 @@ jobs:
                  -X POST \
                  --header "Content-Type: application/json" \
                  -d @pipelineparams.json \
-                 "https://circleci.com/api/v2/project/github/relaxdiego/service-pipeline/pipeline"
+                 "https://circleci.com/api/v2/project/gh/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
 
   integration-test:
     docker:
