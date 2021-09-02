@@ -50,10 +50,14 @@ jobs:
       - attach_workspace:
           at: .
       - run:
+          command: |
+            VERSION=$(cat VERSION | tr -d '[[:space:]]')
+            echo "Got '${VERSION}' from VERSION file."
+      - run:
           command: >
             circleci orb publish --skip-update-check
             << parameters.from >>
-            << parameters.to >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>0.1.0<<# parameters.pre-release>>-<<parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}<</ parameters.pre-release >>
+            << parameters.to >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>${VERSION}<<# parameters.pre-release>>-<<parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}<</ parameters.pre-release >>
             <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
           name: |
             Publish orb to << parameters.to >>
