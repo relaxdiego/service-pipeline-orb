@@ -1,9 +1,35 @@
 version: 2.1
 
 #
+# PIPELINE PARAMETERS
+#
+parameters:
+  run-post-dev-workflow:
+    description: >
+      An internal flag used by this pipeline to indicate if it's already
+      beyond the dev workflow. When this is true, the post-dev workflow
+      will be executed. Do not manually set this. The pipeline itself will
+      be responsible for setting this.
+    type: boolean
+    default: false
+  version-to-test:
+    description: >
+      An internal parameter used by this pipeline to determine which version
+      of the orb to run integration tests on. Do not set it manually. The
+      pipeline itself will be responsible for setting this.
+    type: string
+    # This version must have been already published manually in order for
+    # this pipeline to work. Note that during the execution of the dev
+    # workflow, this is just a placeholder (that must point to a valid version).
+    # When this pipeline triggers the post-dev workflow, it will also set
+    # this to the correct value.
+    default: 0.1.0
+
+#
 # ORBS
 #
 orbs:
+  service-pipeline: relaxdiego/service-pipeline@<< pipeline.parameters.version-to-test >>
   # https://circleci.com/developer/orbs/orb/circleci/orb-tools
   orb-tools: circleci/orb-tools@10.0
   # https://circleci.com/developer/orbs/orb/circleci/bats
@@ -12,6 +38,8 @@ orbs:
   shellcheck: circleci/shellcheck@2.0
   # https://circleci.com/developer/orbs/orb/circleci/circleci-cli
   cli: circleci/circleci-cli@0.1
+  # https://circleci.com/developer/orbs/orb/circleci/jq
+  jq: circleci/jq@2.2
 
 #
 # JOBS
@@ -19,8 +47,7 @@ orbs:
 jobs:
   build:
     description: >
-      Uses the CLI to "compile" src/ to orb.yml. This job also writes the
-      build ID to BUILD_ID.
+      Uses the CLI to "compile" src/ to orb.yml.
     executor: cli/default
     steps:
       - checkout
@@ -32,20 +59,20 @@ jobs:
 
             BUILD_ID="${VERSION}+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}"
             echo "BUILD_ID is ${BUILD_ID}"
-            echo -n $BUILD_ID > BUILD_ID
 
+            # This file header will be parsed by subsequent jobs
             echo "# BUILD_ID: ${BUILD_ID}" > orb.yml
+
             circleci orb pack --skip-update-check src >> orb.yml
       - persist_to_workspace:
           root: .
           paths:
             - orb.yml
-            - BUILD_ID
 
   publish:
     description: >
-      Uses the CLI to publish the orb to a registry. Expects the workspace
-      to have the files orb.yml and BUILD_ID.
+      Uses the CLI to publish the orb to the registry. Expects the workspace
+      to the packed/compiled orb.yml file.
     executor: cli/default
     parameters:
       pre-release:
@@ -56,11 +83,6 @@ jobs:
           See https://semver.org/ for more info on pre-releases.
         type: enum
         enum: ["dev", "qa", ""]
-      registry:
-        description: >
-          The orb registry (in the format <namespace>/<orb-name>) where the
-          build is going to be published.
-        type: string
       token-variable:
         description: >
           The name of the environment variable that contains the token needed
@@ -71,22 +93,33 @@ jobs:
       - attach_workspace:
           at: .
       - run:
-          name: Debug workspace
-          command: |
-            ls -l .
-            cat BUILD_ID
-      - run:
           name: Run `circleci orb publish`
           command: |
+            BUILD_ID=$(awk '/^# BUILD_ID:/{print $NF}' orb.yml | tr -d '[[:space:]]')
             circleci orb publish --skip-update-check orb.yml \
-              << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>$(cat BUILD_ID)<<# parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}.<<parameters.pre-release>><</ parameters.pre-release >> \
-              <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
+              relaxdiego/service-pipeline@dev:${BUILD_ID}.dev \
+              --token $CIRCLE_TOKEN
+
+  trigger-post-dev-workflow:
+    description: >
+      Trigger the post-dev workflow against a given version as indicated by
+      << pipeline.parameters.version-to-test >>
+    docker:
+      - image: cimg/base:stable
+    parameters:
+      token-variable:
+        description: >
+          The name of the environment variable that contains the token needed
+          trigger the post-dev workflow via the CircleCI API.
+        type: env_var_name
+        default: CIRCLE_TOKEN
+    steps:
+      - jq/install
 
   integration-test:
     docker:
       - image: cimg/base:stable
     steps:
-      - checkout
       - run:
           name: Debug
           command: |
@@ -96,7 +129,8 @@ jobs:
 # WORKFLOWS
 #
 workflows:
-  orb-pipeline:
+  dev:
+    unless: << pipeline.parameters.run-post-dev-workflow >>
     jobs:
       - build:
           name: Build orb
@@ -115,8 +149,6 @@ workflows:
 
       - publish:
           name: Publish dev pre-release
-          registry: relaxdiego/service-pipeline
-          pre-release: dev
           context: orb-publishing
           requires:
             - Build orb
@@ -132,11 +164,17 @@ workflows:
               ignore:
                 - .*
 
-      - integration-test:
-          name: Run integration tests
-          requires:
-            - Publish dev pre-release
-
+  #     - trigger-post-dev-workflow:
+  #         name: Trigger post-dev workflow
+  #         requires:
+  #           - Publish dev pre-release
+  #
+  # post-dev:
+  #   when: << pipeline.parameters.post-dev-workflow >>
+  #   jobs:
+  #     - integration-test:
+  #         name: Run integration tests
+  #
       # - publish:
       #     name: promote-to-qa-repo
       #     to:   relaxdiego/service-pipeline-qa
