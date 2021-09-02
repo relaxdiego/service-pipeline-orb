@@ -45,7 +45,7 @@ workflows:
 
       - orb-tools/pack:
           name: pack-orb-source
-          destination: << pipeline.parameters.packed_orb_path >>
+          destination-orb-path: << pipeline.parameters.packed_orb_path >>
 
       - shellcheck/check:
           name:    check-shell-scripts-syntax
