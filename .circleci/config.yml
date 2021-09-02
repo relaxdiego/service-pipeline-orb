@@ -1,8 +1,6 @@
 version: 2.1
 
 orbs:
-  # https://circleci.com/developer/orbs/orb/relaxdiego/service-pipeline
-  service-pipeline: relaxdiego/service-pipeline@<<pipeline.parameters.dev-orb-version>>
   # https://circleci.com/developer/orbs/orb/circleci/orb-tools
   orb-tools: circleci/orb-tools@10.0
   # https://circleci.com/developer/orbs/orb/circleci/bats
@@ -10,49 +8,44 @@ orbs:
   # https://circleci.com/developer/orbs/orb/circleci/shellcheck
   shellcheck: circleci/shellcheck@2.0
 
-#
-# Pipeline Parameters
-#
-# IMPORTANT: These parameters are used internally by orb-tools. Skip to
-#            the Jobs section.
-#
 parameters:
-  run-integration-tests:
+  packed_orb_path:
     description: >
-      An internal flag to prevent integration test from running before a
-      development version has been created.
-    type: boolean
-    default: false
-  dev-orb-version:
-    description: >
-      The development version of the orb to test. This value is automatically
-      adjusted by the "trigger-integration-tests-workflow" job to correspond
-      with the specific version created by the commit and should not be edited.
-      A "dev:alpha" version must exist for the initial pipeline run.
+      The local path where the packed orb will be created by this pipeline
     type: string
-    default: "dev:alpha"
+    default: _build_/orb.yml
 
 jobs:
-  # Jobs that utilize this orb's commands and parameters to validate changes.
-  integration-test:
-    docker:
-      - image: cimg/base:stable
+  publish:
+    description: Uses the CLI to publish the orb to a registry.
+    executor: cli/default
+    parameters:
+      from:
+        description: >
+          The local path where the packed orb can be found
+        type: string
+      to:
+        description: >
+          The orb registry (in the format <namespace>/<orb-name>) where the
+          build is going to be published.
+        type: string
     steps:
-      - checkout
-      # "greet" is a sample command packaged with this orb config.
-      # This sample integration test will run as long as the greet command
-      # exists. Once you remove the greet command you should remove this line.
-      # Push new changes first, before adding new tests to your config.
-      - service-pipeline/greet
+      - run:
+          command: |
+            circleci orb publish --skip-update-check \
+            << parameters.from >> << parameters.to >>@0.1.0+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}
+          name: |
+            Publish orb at << parameters.from >> to << parameters.to >>
 
 workflows:
-  package-pipeline:
+  orb-pipeline:
     jobs:
       - orb-tools/lint:
           name: lint-yaml-files
 
       - orb-tools/pack:
           name: pack-orb-source
+          destination: << parameters.packed_orb_path >>
 
       - shellcheck/check:
           name:    check-shell-scripts-syntax
@@ -63,16 +56,25 @@ workflows:
       - bats/run:
           name: run-bats-tests
           path: ./src/tests
-      #
-      # - publish:
-      #     name: publish-to-dev-repo
-      #     to:   relaxdiego/service-pipeline-dev
-      #     requires:
-      #       - orb-tools/lint
-      #       - orb-tools/pack
-      #       - bats/run
-      #       - shellcheck/check
-      #
+
+      - publish:
+          name: publish-to-dev-repo
+          from: << parameters.packed_orb_path >>
+          to:   relaxdiego/service-pipeline-dev
+          requires:
+            - orb-tools/lint
+            - orb-tools/pack
+            - bats/run
+            - shellcheck/check
+          filter:
+            branches:
+              only:
+                - main
+                - release/.*
+            tags:
+              ignore:
+                - .*
+
       # - integration-test:
       #     requires:
       #       - publish-to-dev-repo
