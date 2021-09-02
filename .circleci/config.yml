@@ -25,13 +25,14 @@ jobs:
     steps:
       - checkout
       - run:
-          name: "Build orb.yml"
+          name: Run `circleci orb pack`
           command: |
             VERSION=$(cat VERSION | tr -d '[[:space:]]')
             echo "Got '${VERSION}' from VERSION file."
 
             BUILD_ID="${VERSION}+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}"
             echo "BUILD_ID is ${BUILD_ID}"
+            echo -n $BUILD_ID > BUILD_ID
 
             echo "# BUILD_ID: ${BUILD_ID}" > orb.yml
             circleci orb pack --skip-update-check src >> orb.yml
@@ -50,7 +51,7 @@ jobs:
       pre-release:
         default: ""
         description: >
-          An optional pre-release version that will be inserted to the orb's
+          An optional pre-release version that will be appended to the orb's
           version in the case when it's not yet promoted to production.
           See https://semver.org/ for more info on pre-releases.
         type: enum
@@ -70,18 +71,16 @@ jobs:
       - attach_workspace:
           at: .
       - run:
-          name: debug
+          name: Debug workspace
           command: |
             ls -l .
             cat BUILD_ID
-
-            cat orb.yml
-      # - run:
-      #     name: Publish orb to << parameters.registry >>
-      #     command: |
-      #       circleci orb publish --skip-update-check orb.yml \
-      #         << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>$(echo -n $VERSION)<<# parameters.pre-release>>-<<parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}<</ parameters.pre-release >> \
-      #         <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
+      - run:
+          name: Publish orb
+          command: |
+            circleci orb publish --skip-update-check orb.yml \
+              << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>$(cat BUILD_ID)+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}<<# parameters.pre-release>>.<<parameters.pre-release>><</ parameters.pre-release >> \
+              <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
 
 #
 # WORKFLOWS
@@ -89,7 +88,8 @@ jobs:
 workflows:
   orb-pipeline:
     jobs:
-      - build
+      - build:
+          name: Build orb
 
       # - orb-tools/lint:
       #     name: lint-yaml-files
@@ -104,7 +104,7 @@ workflows:
       #     path: ./src/tests
 
       - publish:
-          name: publish-dev-pre-release
+          name: Publish dev pre-release
           registry: relaxdiego/service-pipeline
           context: orb-publishing
           requires:
