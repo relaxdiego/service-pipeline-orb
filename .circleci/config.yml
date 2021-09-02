@@ -72,6 +72,7 @@ workflows:
           name: publish-to-dev-repo
           from: << pipeline.parameters.packed_orb_path >>
           to:   relaxdiego/service-pipeline-dev
+          context: orb-publishing
           requires:
             - lint-yaml-files
             - pack-orb-source
