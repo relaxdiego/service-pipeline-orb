@@ -45,7 +45,7 @@ workflows:
 
       - orb-tools/pack:
           name: pack-orb-source
-          destination: << parameters.packed_orb_path >>
+          destination: << pipeline.parameters.packed_orb_path >>
 
       - shellcheck/check:
           name:    check-shell-scripts-syntax
@@ -59,7 +59,7 @@ workflows:
 
       - publish:
           name: publish-to-dev-repo
-          from: << parameters.packed_orb_path >>
+          from: << pipeline.parameters.packed_orb_path >>
           to:   relaxdiego/service-pipeline-dev
           requires:
             - orb-tools/lint
