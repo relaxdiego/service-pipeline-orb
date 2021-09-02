@@ -102,7 +102,7 @@ jobs:
           name: Run ./circleci/scripts/trigger-post-dev-workflow.sh
           command: |
             BUILD_ID=$(awk '/^# BUILD_ID:/{print $NF}' orb.yml | tr -d '[[:space:]]')
-            cat > pipelineparams.json <<EOF
+            cat > pipelineparams.json \<<EOF
             {
               "run-post-dev-workflow": true,
               "version-to-test": "dev:${BUILD_ID}.dev"
@@ -120,7 +120,7 @@ jobs:
     steps:
       - run:
           command: |
-            echo << pipeline.parameters.version-to-test >>
+            env | sort
       - service-pipeline/greet
 
 #
@@ -169,7 +169,7 @@ workflows:
             - Publish dev pre-release
 
   post-dev:
-    when: << pipeline.parameters.post-dev-workflow >>
+    when: << pipeline.parameters.run-post-dev-workflow >>
     jobs:
       - integration-test:
           name: Run integration tests
