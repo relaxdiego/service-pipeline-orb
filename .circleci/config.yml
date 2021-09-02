@@ -108,7 +108,7 @@ workflows:
           registry: relaxdiego/service-pipeline
           context: orb-publishing
           requires:
-            - build
+            - Build orb
             # - lint-yaml-files
             # - check-shell-scripts-syntax
             # - run-bats-tests
