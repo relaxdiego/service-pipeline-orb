@@ -40,6 +40,8 @@ jobs:
         type: env_var_name
         default: CIRCLE_TOKEN
     steps:
+      - attach_workspace:
+          at: .
       - run:
           command: |
             circleci orb publish --skip-update-check \
@@ -57,6 +59,7 @@ workflows:
       - orb-tools/pack:
           name: pack-orb-source
           destination-orb-path: << pipeline.parameters.packed_orb_path >>
+          workspace-path: << pipeline.parameters.packed_orb_path >>
 
       - shellcheck/check:
           name:    check-shell-scripts-syntax
