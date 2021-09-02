@@ -93,13 +93,35 @@ jobs:
     docker:
       - image: cimg/base:stable
     steps:
+      - attach_workspace:
+          at: .
       - jq/install
       # Check out the repo again so that we will have access to .circleci/
       - checkout
       - run:
           name: Run ./circleci/scripts/trigger-post-dev-workflow.sh
           command: |
-            .circleci/scripts/trigger-post-dev-workflow.sh
+            BUILD_ID=$(awk '/^# BUILD_ID:/{print $NF}' orb.yml | tr -d '[[:space:]]')
+            cat > pipelineparams.json <<EOF
+            {
+              "run-post-dev-workflow": true,
+              "version-to-test": "dev:${BUILD_ID}.dev"
+            }
+            EOF
+            curl -u "$CIRCLE_TOKEN": \
+                 -X POST \
+                 --header "Content-Type: application/json" \
+                 -d @pipelineparams.json \
+                 "https://circleci.com/api/v2/project/github/relaxdiego/service-pipeline/pipeline"
+
+  integration-test:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          command: |
+            echo << pipeline.parameters.version-to-test >>
+      - service-pipeline/greet
 
 #
 # WORKFLOWS
@@ -142,15 +164,16 @@ workflows:
 
       - trigger-post-dev-workflow:
           name: Trigger post-dev workflow
+          context: orb-publishing
           requires:
             - Publish dev pre-release
 
-  # post-dev:
-  #   when: << pipeline.parameters.post-dev-workflow >>
-  #   jobs:
-  #     - integration-test:
-  #         name: Run integration tests
-  #
+  post-dev:
+    when: << pipeline.parameters.post-dev-workflow >>
+    jobs:
+      - integration-test:
+          name: Run integration tests
+
       # - publish:
       #     name: promote-to-qa-repo
       #     to:   relaxdiego/service-pipeline-qa
