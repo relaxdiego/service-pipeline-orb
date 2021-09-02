@@ -15,7 +15,7 @@ parameters:
     description: >
       The local path where the packed orb will be created by this pipeline
     type: string
-    default: _build_/orb.yml
+    default: orb.yml
 
 jobs:
   publish:
