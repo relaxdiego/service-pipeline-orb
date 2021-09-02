@@ -51,6 +51,7 @@ jobs:
           at: .
       - run:
           command: |
+            ls -l
             VERSION=$(cat VERSION | tr -d '[[:space:]]')
             echo "Got '${VERSION}' from VERSION file."
       - run:
