@@ -82,6 +82,16 @@ jobs:
               << parameters.registry >>@<<# parameters.pre-release >>dev:<</ parameters.pre-release >>$(cat BUILD_ID)<<# parameters.pre-release>>+${CIRCLE_SHA1:0:7}.${CIRCLE_BUILD_NUM}.<<parameters.pre-release>><</ parameters.pre-release >> \
               <<# parameters.token-variable >>--token $<< parameters.token-variable >> <</ parameters.token-variable >>
 
+  integration-test:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Debug
+          command: |
+            ls -l .
+
 #
 # WORKFLOWS
 #
@@ -122,10 +132,11 @@ workflows:
               ignore:
                 - .*
 
-      # - integration-test:
-      #     requires:
-      #       - publish-to-dev-repo
-      #
+      - integration-test:
+          name: Run integration tests
+          requires:
+            - Publish dev pre-release
+
       # - publish:
       #     name: promote-to-qa-repo
       #     to:   relaxdiego/service-pipeline-qa
